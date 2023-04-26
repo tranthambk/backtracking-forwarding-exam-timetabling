@@ -1,15 +1,9 @@
-
 import time
 from itertools import product
 import pandas as pd 
 
 from copy import deepcopy
 import time
-# output_schedule = {
-#     "1": [("1", "3")],
-#     "2": [("2", "3")],
-# }
-
 
 """
 Some helper functions used throughout the scheduler.
@@ -44,9 +38,11 @@ class ImpossibleAssignments(ValueError):
     
     pass
 class ExamTimetabling:
-  def __init__(self, ls_dict_exam, df_meta_period: pd.DataFrame):
+  def __init__(self, ls_dict_exam, df_meta_period: pd.DataFrame, df_student_exam: pd.DataFrame):
     self.ls_dict_exam = ls_dict_exam
     self.df_meta_period = df_meta_period
+    self.df_student_exam = df_student_exam
+    print(self.df_student_exam)
   
   def find_schedule(self):
       """Schedule the timetable."""
@@ -75,6 +71,7 @@ class ExamTimetabling:
         if len(assignment) > 1:
             return False
     return True
+
   def _assign_values(self, schedule):
       """
       Assign an unassigned variable and traverse the search tree further.
@@ -91,35 +88,52 @@ class ExamTimetabling:
       
       # Iterate over unassigned variables.
       ls_unassign = self._get_unassigned_vars(schedule, sort=True)
-      for exam in ls_unassign:
+      for exam_id in ls_unassign:
           # Iterate over domain.
-          domain = deepcopy(schedule[exam])
+          domain = deepcopy(schedule[exam_id])
           for assignment in domain:
-              schedule[exam] = [assignment]
+              schedule[exam_id] = [assignment]
       #         # Propagate constraints.
               try:
-                  reduced_domains_schedule = self._reduce_domains(exam,deepcopy(schedule), assignment)
-                  # reduced_domains_schedule = self._resolve_small_domains(reduced_domains_schedule)
+                  reduced_domains_schedule = self._reduce_domains(exam_id,deepcopy(schedule), assignment)
                   # Recursively call the function to traverse the search tree.
                   return self._assign_values(reduced_domains_schedule)
               except ImpossibleAssignments:
                   # Remove invalid assignment and restore domain if higher order constraints cause 
                   # domain to become empty.
-                  schedule[exam] = domain
+                  schedule[exam_id] = domain
                   continue
-
+  def _get_exam_same_students(self, target_id):
+     """ Get all exam id have at least 1 same student with target_id """
+     ls_student  = list(self.df_student_exam[self.df_student_exam.exam_id == target_id ]["exam_id"].unique())
+     ls_exam_id =  list(self.df_student_exam[self.df_student_exam.student_id.isin(ls_student) ]["exam_id"].unique())
+     ls_exam_id = [i for i in ls_exam_id if i != target_id]
+     return ls_exam_id
+     
   def _get_unassigned_vars(self, schedule, sort=False):
 
      """Get all variables that have not yet been assigned a value."""
      unassigned_exam = []
       
-     for exam, domain_value in schedule.items():
+     for exam_id, domain_value in schedule.items():
        if len(domain_value) > 1:
-         unassigned_exam.append(exam)
+         unassigned_exam.append(exam_id)
      return unassigned_exam
   def _reduce_domains(self, exam_old, schedule, new_assignment):
         """Reduce domains by propagating constraints.""" 
         
+        #CONTRAINT: 1 student cannot join 2 exam in the same period
+        ls_exam_same = self._get_exam_same_students(exam_old)
+        for exam_id in ls_exam_same:
+          if exam_id in schedule:
+            print("BEFORE", len(schedule[exam_id]))
+            schedule[exam_id] = [i for i in schedule[exam_id] if i.split(":")[-1] != new_assignment.split(":")[-1]]
+            print("after", len(schedule[exam_id]))
+            if len(schedule[exam_id])==0:
+                raise ImpossibleAssignments('Assignment leads to inconsistencies.') 
+
+           
+        #CONTRAINT: 1 room cannot assigned to 2 exam in the same period
         for exam in self._get_unassigned_vars(schedule):
             # Remove the newly assigned value from any other domain.
             if new_assignment in schedule[exam]:
