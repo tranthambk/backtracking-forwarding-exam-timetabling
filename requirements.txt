@@ -1,2 +1,4 @@
 pandas
 xmltodict
+prettytable
+openpyxl

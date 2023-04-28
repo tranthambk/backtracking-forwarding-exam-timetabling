@@ -26,7 +26,6 @@ def sort_dict_by_mrv(d):
     return OrderedDict(sorted(d.items(), key=lambda x: len(x[1]) if isinstance(x[1], set) else 0))
 
 def get_first_element(iterable):
-    
     return next(iter(iterable))
 
  
@@ -35,14 +34,14 @@ def get_first_element(iterable):
 
 """Custom exeptions."""
 class ImpossibleAssignments(ValueError):
-    
     pass
+
+
 class ExamTimetabling:
   def __init__(self, ls_dict_exam, df_meta_period: pd.DataFrame, df_student_exam: pd.DataFrame):
     self.ls_dict_exam = ls_dict_exam
     self.df_meta_period = df_meta_period
     self.df_student_exam = df_student_exam
-    print(self.df_student_exam)
   
   def find_schedule(self):
       """Schedule the timetable."""
@@ -126,9 +125,7 @@ class ExamTimetabling:
         ls_exam_same = self._get_exam_same_students(exam_old)
         for exam_id in ls_exam_same:
           if exam_id in schedule:
-            print("BEFORE", len(schedule[exam_id]))
             schedule[exam_id] = [i for i in schedule[exam_id] if i.split(":")[-1] != new_assignment.split(":")[-1]]
-            print("after", len(schedule[exam_id]))
             if len(schedule[exam_id])==0:
                 raise ImpossibleAssignments('Assignment leads to inconsistencies.') 
 
@@ -151,11 +148,13 @@ class ExamTimetabling:
         try:
           id_period =  assignment[0].split(":")[1]
           id_room =  assignment[0].split(":")[0]
-          day  = self.df_meta_period[self.df_meta_period.period_id == id_period]["day"].iloc[0]
-          time_exam  = self.df_meta_period[self.df_meta_period.period_id == id_period]["time"].iloc[0]
-          schedule_ll.append([str(exam),day, time_exam,  str(id_room), str(id_period)])
+          record = self.df_meta_period[self.df_meta_period.period_id == int(id_period)]
+          if record.shape[0] > 0:
+            day  = record["day"].iloc[0]
+            time_exam  = record["time"].iloc[0]
+            schedule_ll.append([str(exam),day, time_exam,  str(id_room), str(id_period)])
         except Exception as e:
-          print(e)
+          print("ERR: ",e,exam, assignment )
           continue
       
     df = pd.DataFrame(schedule_ll, columns=['Exam ID',  "Date", "time", 'Room', 'Period'])

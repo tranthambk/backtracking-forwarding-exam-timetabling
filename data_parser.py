@@ -4,6 +4,7 @@ import json
 from itertools import product
 from typing import *
 import numpy as np
+import xmltodict
 
 #     json_data = json.dumps(dict_data)
 #     with open("data/data.json", "w") as json_file:
@@ -65,6 +66,38 @@ def get_metadata_period(data: dict) -> pd.DataFrame:
             inplace = True)
     df.drop(columns = ["@penalty"], inplace = True)
     return df
+
+
+def parse_from_excel(path):
+
+    df_meta_period = pd.read_excel(open(path, "rb"), engine = "openpyxl", sheet_name = "metadata_period")
+    df_student_exam = pd.read_excel(open(path, "rb"), engine = "openpyxl", sheet_name = "student_exam")
+    df_room_period = pd.read_excel(open(path, "rb"), engine = "openpyxl", sheet_name = "room_period")
+
+    ls_room_period_constraint: List = list(df_room_period.apply(lambda x: str(x["room_id"])+":"+str(x["period_id"]), axis = 1))
+    df_exam = pd.read_excel(open(path, "rb"), engine = "openpyxl", sheet_name = "exam")
+    df_exam["ls_pair"] = df_exam.apply(lambda x: [ str(i[0])+":"+str(i[1]) for i in  list(product(x["id_rooms"].split(","), x["id_periods"].split(",")))], axis = 1)
+    df_exam["ls_room_period_valid"] = df_exam["ls_pair"].apply(lambda x: np.intersect1d(x, ls_room_period_constraint))
+    print(df_meta_period)
+    df_exam = df_exam[["exam_id", "ls_room_period_valid"]].rename(columns = {"exam_id": "id"})
+    return df_meta_period, df_student_exam, df_exam, df_room_period
+
+def parse_from_xml(path):
+    path_file = "data/pu-exam-fal12.xml"
+    with open(path_file) as file:
+        data = xmltodict.parse(file.read())
+
+    df_meta_period = get_metadata_period(data)
+    df_student_exam =  parse_student_exam(data)
+    df_student_exam = df_student_exam.dropna()
+    df_room_period: pd.DataFrame = parse_room_period(data)
+
+    ls_room_period_constraint: List = list(df_room_period.apply(lambda x: str(x["room_id"])+":"+str(x["period_id"]), axis = 1))
+    df_exam: pd.DataFrame = parse_exam(data, ls_room_period_constraint)
+
+    df_exam = df_exam[["@id", "ls_room_period_valid"]].rename(columns = {"@id": "id"})
+    ls_dict_exam = df_exam.to_dict("records")
+    return df_meta_period, df_student_exam, df_exam, df_room_period
 
 
 # path_file = "data/pu-exam-fal12.xml"
