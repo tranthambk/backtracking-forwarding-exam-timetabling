@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     t_0 = time.time()
     print("NUM EXAM: ", len(ls_dict_exam))
-    exam_timetabling = ExamTimetabling(ls_dict_exam[:500], df_meta_period)
+    exam_timetabling = ExamTimetabling(ls_dict_exam[:500], df_meta_period, df_student_exam)
     a = exam_timetabling.find_schedule()
     print(exam_timetabling)
     print("TOTAL TIME: ", time.time() -  t_0)
